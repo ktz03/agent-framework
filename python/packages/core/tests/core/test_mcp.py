@@ -593,6 +593,82 @@ def test_parse_tool_result_content_modes_for_complementary_and_duplicate_payload
     assert content_only._parse_tool_result_from_mcp(empty)[0].text == "null"
 
 
+def test_parse_tool_result_content_modes_for_equivalent_duplicate_payloads():
+    """When content is a JSON serialization of structuredContent, modes still select one policy (#7866)."""
+    payload = {"result": "This repository is a multi-language framework."}
+    duplicate = types.CallToolResult(
+        content=[types.TextContent(type="text", text=json.dumps(payload))],
+        structuredContent=payload,
+    )
+
+    structured_first = MCPTool(name="helper", tool_result_content="structured_first")  # type: ignore[abstract]
+    sf = structured_first._parse_tool_result_from_mcp(duplicate)
+    assert len(sf) == 1
+    assert json.loads(sf[0].text) == payload
+
+    content_first = MCPTool(name="helper", tool_result_content="content_first")  # type: ignore[abstract]
+    cf = content_first._parse_tool_result_from_mcp(duplicate)
+    assert len(cf) == 1
+    assert cf[0].text == json.dumps(payload)
+
+    content_only = MCPTool(name="helper", tool_result_content="content_only")  # type: ignore[abstract]
+    assert [c.text for c in content_only._parse_tool_result_from_mcp(duplicate)] == [json.dumps(payload)]
+
+    structured_only = MCPTool(name="helper", tool_result_content="structured_only")  # type: ignore[abstract]
+    assert json.loads(structured_only._parse_tool_result_from_mcp(duplicate)[0].text) == payload
+
+    both = MCPTool(name="helper", tool_result_content="both")  # type: ignore[abstract]
+    both_result = both._parse_tool_result_from_mcp(duplicate)
+    assert len(both_result) == 2
+    assert both_result[0].text == json.dumps(payload)
+    assert json.loads(both_result[1].text) == payload
+
+
+@pytest.mark.parametrize(
+    "tool_result_content,expected_model_texts",
+    [
+        ("structured_first", [json.dumps({"image_url": "https://example.test/widget.png"})]),
+        ("content_first", ["Summary"]),
+        ("content_only", ["Summary"]),
+        ("structured_only", [json.dumps({"image_url": "https://example.test/widget.png"})]),
+        (
+            "both",
+            [
+                "Summary",
+                json.dumps({"image_url": "https://example.test/widget.png"}),
+            ],
+        ),
+    ],
+)
+async def test_generated_mcp_tool_retains_full_host_payload_for_all_content_modes(
+    tool_result_content: str,
+    expected_model_texts: list[str],
+) -> None:
+    """Model-visible selection changes with mode; HostMessageContent keeps the full MCP payload."""
+    mcp_result = types.CallToolResult(
+        content=[types.TextContent(type="text", text="Summary")],
+        structuredContent={"image_url": "https://example.test/widget.png"},
+        isError=False,
+        _meta={"widget": "image"},
+    )
+    tool = MCPTool(name="helper", tool_result_content=tool_result_content)  # type: ignore[abstract]
+    tool.session = Mock()
+    tool.session.call_tool = AsyncMock(return_value=mcp_result)
+
+    function_result = await _call_generated_mcp_tool(tool, "widget")
+    assert function_result.items is not None
+    assert [item.text for item in function_result.items] == expected_model_texts
+
+    expected_host_payload = {
+        "_meta": {"widget": "image"},
+        "content": [{"type": "text", "text": "Summary"}],
+        "structuredContent": {"image_url": "https://example.test/widget.png"},
+        "isError": False,
+    }
+    assert function_result.additional_properties[_MCP_TOOL_RESULT_HOST_PAYLOAD_KEY] == expected_host_payload
+    assert all(_MCP_TOOL_RESULT_HOST_PAYLOAD_KEY not in item.additional_properties for item in function_result.items)
+
+
 async def test_generated_mcp_tool_preserves_complete_host_payload_once() -> None:
     """The generated FunctionTool path retains one complete, persistent Host payload."""
     mcp_result = types.CallToolResult(
