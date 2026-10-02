@@ -205,10 +205,7 @@ class HttpRequestActionExecutor(DeclarativeActionExecutor):
             return
 
         # Non-success path: still publish headers diagnostically, then raise.
-        self._assign_response_headers(state, result)
-        # Runner discards pending State when the superstep fails (#7859 / #8306).
-        # Commit first so diagnostic headers remain readable after the error.
-        state.commit()
+        self._assign_response_headers(state, result, diagnostic=True)
         raise DeclarativeActionError(f"HTTP request to '{url}' failed with status code {result.status_code}.")
 
     # ----- Field resolution ----------------------------------------------------
@@ -354,12 +351,11 @@ class HttpRequestActionExecutor(DeclarativeActionExecutor):
             return
         state.set(path, _parse_response_body(result.body))
 
-    def _assign_response_headers(self, state: DeclarativeWorkflowState, result: HttpRequestResult) -> None:
+    def _assign_response_headers(
+        self, state: DeclarativeWorkflowState, result: HttpRequestResult, *, diagnostic: bool = False
+    ) -> None:
         path = _get_path(self._action_def, "responseHeaders")
         if path is None:
-            return
-        if not result.headers:
-            state.set(path, None)
             return
         # Fold multi-value headers with commas (standard HTTP folding) only at
         # assignment time. The raw multi-value dict on HttpRequestResult.headers
@@ -367,7 +363,13 @@ class HttpRequestActionExecutor(DeclarativeActionExecutor):
         flattened: dict[str, str] = {}
         for key, values in result.headers.items():
             flattened[key] = ",".join(values)
-        state.set(path, flattened)
+        value = flattened if result.headers else None
+        if diagnostic:
+            # Preserve only this value on the committed baseline; other writes
+            # in the failed superstep must still be discarded by the runner.
+            state._set_diagnostic(path, value)  # pyright: ignore[reportPrivateUsage]
+        else:
+            state.set(path, value)
 
     def _append_response_to_conversation(
         self,

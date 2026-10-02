@@ -554,6 +554,50 @@ async def test_http_response_is_not_published_in_agui_errors(
 
 
 class TestResponseHeaders:
+    @pytest.mark.parametrize("response_headers", [None, "Local.H"])
+    @pytest.mark.parametrize("headers", [{}, {"X-Trace": ["abc"]}])
+    async def test_non_2xx_discards_unrelated_pending_writes(
+        self, response_headers: str | None, headers: dict[str, list[str]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from agent_framework import WorkflowBuilder
+
+        from agent_framework_declarative._workflows._declarative_base import DeclarativeWorkflowState
+        from agent_framework_declarative._workflows._executors_http import HttpRequestActionExecutor
+
+        handler = StubHandler(_err(headers=headers))
+        http_executor = HttpRequestActionExecutor(
+            _action(response_headers=response_headers), http_request_handler=handler
+        )
+        workflow = WorkflowBuilder(start_executor=http_executor).build()
+        runner_state = workflow._runner.state
+        state = DeclarativeWorkflowState(runner_state)
+        state.initialize()
+        state.set("Local.Existing", "committed")
+        runner_state.set("unrelated", "committed")
+        runner_state.commit()
+        original_send = handler.send
+
+        async def send_with_pending_writes(info: HttpRequestInfo) -> HttpRequestResult:
+            state.set("Local.Existing", "pending")
+            state.set("Local.Unpublished", "pending")
+            runner_state.set("unrelated", "pending")
+            runner_state.set("new-key", "pending")
+            return await original_send(info)
+
+        monkeypatch.setattr(handler, "send", send_with_pending_writes)
+        with pytest.raises(DeclarativeActionError):
+            await workflow.run({})
+
+        assert state.get("Local.Existing") == "committed"
+        assert state.get("Local.Unpublished") is None
+        assert runner_state.get("unrelated") == "committed"
+        assert not runner_state.has("new-key")
+        if response_headers is not None:
+            assert state.get(response_headers) == ({"X-Trace": "abc"} if headers else None)
+            assert "H" in state.get_state_data()["Local"]
+        else:
+            assert "H" not in state.get_state_data()["Local"]
+
     @pytest.mark.asyncio
     async def test_response_headers_folded_with_commas(self) -> None:
         handler = StubHandler(
