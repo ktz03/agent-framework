@@ -4,23 +4,23 @@ This folder contains examples demonstrating how to send multimodal content (imag
 
 ## Examples
 
-### OpenAI Chat Client
+### OpenAI clients
 
 - **File**: `openai_chat_multimodal.py`
-- **Description**: Shows how to send images, audio, and PDF files to OpenAI's Chat Completions API
+- **Description**: Shows image and PDF input with `OpenAIChatClient`, and audio input with `OpenAIChatCompletionClient`
 - **Supported formats**: PNG/JPEG images, WAV/MP3 audio, PDF documents
 
-### Azure OpenAI Chat Client
+### Foundry image sample
 
 - **File**: `azure_chat_multimodal.py`
-- **Description**: Shows how to send images to Azure OpenAI Chat Completions API
-- **Supported formats**: PNG/JPEG images (PDF files are NOT supported by Chat Completions API)
+- **Description**: Shows image input with `FoundryChatClient`
+- **Supported formats**: PNG/JPEG images
 
-### Azure OpenAI Responses Client
+### Foundry image and PDF sample
 
 - **File**: `azure_responses_multimodal.py`
-- **Description**: Shows how to send images and PDF files to Azure OpenAI Responses API
-- **Supported formats**: PNG/JPEG images, PDF documents (full multimodal support)
+- **Description**: Shows image and PDF input with `FoundryChatClient`
+- **Supported formats**: PNG/JPEG images, PDF documents
 
 ## Environment Variables
 
@@ -29,15 +29,10 @@ Set the following environment variables before running the examples:
 **For OpenAI:**
 - `OPENAI_API_KEY`: Your OpenAI API key
 
-**For Azure OpenAI:**
+**For both Foundry samples (`azure_chat_multimodal.py` and `azure_responses_multimodal.py`):**
 
-- `AZURE_OPENAI_ENDPOINT`: Your Azure OpenAI endpoint
-- `AZURE_OPENAI_MODEL`: The name of your Azure OpenAI chat model deployment
-- `AZURE_OPENAI_MODEL`: The name of your Azure OpenAI responses model deployment
-
-Optionally for Azure OpenAI:
-- `AZURE_OPENAI_API_VERSION`: The API version to use (default is `2024-10-21`)
-- `AZURE_OPENAI_API_KEY`: Your Azure OpenAI API key (if not using `AzureCliCredential`)
+- `FOUNDRY_PROJECT_ENDPOINT`: Your Microsoft Foundry project endpoint, such as `https://your-account.services.ai.azure.com/api/projects/your-project`
+- `FOUNDRY_MODEL`: The model deployment name in your Foundry project
 
 **Note:** You can also provide configuration directly in code instead of using environment variables:
 ```python
@@ -51,7 +46,7 @@ client = FoundryChatClient(
 
 ## Authentication
 
-The Azure example uses `AzureCliCredential` for authentication. Run `az login` in your terminal before running the example, or replace `AzureCliCredential` with your preferred authentication method (e.g., provide `api_key` parameter).
+Both Foundry samples use `AzureCliCredential` for authentication. Run `az login` in your terminal before running them, or pass another supported Azure credential through the `credential` parameter.
 
 ## Running the Examples
 
@@ -59,10 +54,10 @@ The Azure example uses `AzureCliCredential` for authentication. Run `az login` i
 # Run OpenAI example
 python openai_chat_multimodal.py
 
-# Run Azure Chat example (requires az login or API key)
+# Run Foundry image example (requires az login)
 python azure_chat_multimodal.py
 
-# Run Azure Responses example (requires az login or API key)
+# Run Foundry image and PDF example (requires az login)
 python azure_responses_multimodal.py
 ```
 
@@ -110,10 +105,10 @@ Content.from_data(
 | Audio     | WAV, MP3             | For transcription and analysis |
 | Documents | PDF                  | Text extraction and analysis   |
 
-## API Differences
+## Clients Used by the Samples
 
-- **OpenAI Chat Completions API**: Supports images, audio, and PDF files
-- **Azure OpenAI Chat Completions API**: Supports images only (no PDF/audio file types)
-- **Azure OpenAI Responses API**: Supports images and PDF files (full multimodal support)
+- **OpenAI example**: Uses `OpenAIChatClient` for images and PDFs, and `OpenAIChatCompletionClient` for audio.
+- **Foundry image example**: Uses `FoundryChatClient` for images.
+- **Foundry image and PDF example**: Uses `FoundryChatClient` for images and PDFs.
 
-Choose the appropriate client based on your multimodal needs and available APIs.
+Choose the sample and deployed model that match your input type.
