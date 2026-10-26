@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 from pathlib import Path
+from unittest.mock import patch
 
 from packaging.version import Version
 
@@ -9,6 +10,7 @@ from scripts.dependencies.upgrade_dev_dependencies import (
     _apply_tool_requirement_replacements,
     _collect_tool_requirement_replacements,
 )
+from scripts.tool_requirements import load_requirements
 
 
 class _VersionCatalog:
@@ -66,3 +68,30 @@ def test_apply_tool_requirement_replacements_preserves_includes_and_comments(tmp
     _apply_tool_requirement_replacements(requirements_file, {"ruff==0.16.10": "ruff==0.17.0"})
 
     assert requirements_file.read_text() == "# Shared tools\n-r runtime.txt\nruff==0.17.0\n"
+
+
+def test_collect_tool_requirement_replacements_reads_utf8_comments(tmp_path: Path) -> None:
+    requirements_file = tmp_path / "testing.txt"
+    requirements_file.write_text("# 日本語 documentation\npytest==9.1.1\n", encoding="utf-8")
+    catalog = _VersionCatalog({"pytest": ["9.1.1", "9.2.0"]})
+
+    replacements = _collect_tool_requirement_replacements(requirements_file, catalog=catalog)  # type: ignore[arg-type]
+
+    assert replacements == {"pytest==9.1.1": "pytest==9.2.0"}
+
+
+def test_apply_tool_requirement_replacements_preserves_utf8_comments(tmp_path: Path) -> None:
+    requirements_file = tmp_path / "all.txt"
+    requirements_file.write_text("# 日本語 documentation\n-r runtime.txt\nruff==0.16.10\n", encoding="utf-8")
+
+    _apply_tool_requirement_replacements(requirements_file, {"ruff==0.16.10": "ruff==0.17.0"})
+
+    assert requirements_file.read_text(encoding="utf-8") == "# 日本語 documentation\n-r runtime.txt\nruff==0.17.0\n"
+
+
+def test_load_requirements_reads_utf8_comments_in_included_files(tmp_path: Path) -> None:
+    (tmp_path / "requirements-testing.txt").write_text("# Test tools\n-r runtime.txt\npytest==9.1.1\n", encoding="utf-8")
+    (tmp_path / "runtime.txt").write_text("# 日本語 documentation\nrich==15.0.0\n", encoding="utf-8")
+
+    with patch("scripts.tool_requirements.REQUIREMENTS_ROOT", tmp_path):
+        assert load_requirements("testing") == ("rich==15.0.0", "pytest==9.1.1")

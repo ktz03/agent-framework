@@ -33,7 +33,7 @@ def _load_requirement_file(path: Path, *, seen: set[Path]) -> tuple[str, ...]:
 
     seen.add(resolved_path)
     requirements: list[str] = []
-    for raw_line in path.read_text().splitlines():
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue

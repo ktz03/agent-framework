@@ -81,6 +81,8 @@ jobs:
           UV_CACHE_DIR: /tmp/.uv-cache
       - name: Run syntax and pyright across packages
         run: uv run poe check-packages
+      - name: Test tool requirement loading and pin updates
+        run: uv run --locked --group tool-runtime python -m pytest scripts/dependencies/tests/test_upgrade_dev_dependencies.py -q -o addopts=''
 
   samples-markdown:
     name: Samples & Markdown

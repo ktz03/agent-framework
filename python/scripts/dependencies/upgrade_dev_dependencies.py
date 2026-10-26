@@ -45,7 +45,7 @@ def _collect_tool_requirement_replacements(
     """Return exact tool-pin updates for one requirements file."""
     requirements = [
         line
-        for raw_line in requirements_file.read_text().splitlines()
+        for raw_line in requirements_file.read_text(encoding="utf-8").splitlines()
         if (line := raw_line.strip()) and not line.startswith(("#", "-r ", "--requirement "))
     ]
     return _collect_requirement_replacements(requirements, catalog=catalog)
@@ -79,7 +79,7 @@ def _collect_requirement_replacements(
 
 def _apply_tool_requirement_replacements(requirements_file: Path, replacements: dict[str, str]) -> None:
     """Apply exact requirement replacements while preserving file layout."""
-    lines = requirements_file.read_text().splitlines(keepends=True)
+    lines = requirements_file.read_text(encoding="utf-8").splitlines(keepends=True)
     updated_lines: list[str] = []
     for line in lines:
         stripped = line.strip()
@@ -89,7 +89,7 @@ def _apply_tool_requirement_replacements(requirements_file: Path, replacements: 
             continue
         newline = "\n" if line.endswith("\n") else ""
         updated_lines.append(f"{replacement}{newline}")
-    requirements_file.write_text("".join(updated_lines))
+    requirements_file.write_text("".join(updated_lines), encoding="utf-8")
 
 
 def _read_project_name(pyproject_file: Path) -> str:
