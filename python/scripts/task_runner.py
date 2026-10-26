@@ -120,7 +120,7 @@ def normalize_project_filter(value: str) -> str:
     Strip presentation differences so short names, relative paths, and globs can
     be compared with one matcher.
     """
-    normalized = value.strip().strip("/").replace("\\", "/")
+    normalized = value.strip().replace("\\", "/").strip("/")
     return normalized or "."
 
 

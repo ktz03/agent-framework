@@ -6,6 +6,7 @@ on:
     branches: ["main"]
     paths:
       - "python/**"
+      - ".github/tests/test_task_runner.py"
       - "!python/AGENTS.md"
       - "!python/**/AGENTS.md"
       - "!python/.github/skills/*"
@@ -79,6 +80,8 @@ jobs:
           os: ${{ runner.os }}
         env:
           UV_CACHE_DIR: /tmp/.uv-cache
+      - name: Run task runner selector regressions
+        run: uv run --locked --group tool-runtime python -m unittest discover -s ../.github/tests -p test_task_runner.py
       - name: Run syntax and pyright across packages
         run: uv run poe check-packages
 
