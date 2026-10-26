@@ -81,20 +81,20 @@ uv run poe validate-dependency-bounds-project --mode both --package core --depen
   the routine release path.
 - `validate-dependency-bounds-project` is the single package-scoped task; use `--mode lower`, `--mode upper`, or `--mode both` for the target package/dependency pair. Its `--package` argument defaults to `*`, and `--dependency` is optional, so automation can also use it for repo-wide upper-bound runs.
 
-### GitHub Actions workflows
+### GitHub Actions workflow
 
-These workflows call the Poe tasks:
+The combined [Python - Dependency Maintenance workflow](../../../.github/workflows/python-dependency-maintenance.yml)
+runs on `workflow_dispatch` and a weekly schedule. It:
 
-- `.github/workflows/python-dependency-range-validation.yml`
-  - Trigger: `workflow_dispatch`
-  - Runs `uv run poe validate-dependency-bounds-project --mode upper --package "*"`
-  - Uploads `python/scripts/dependencies/dependency-range-results.json`
-  - Creates issues for failing candidate versions and opens/updates a PR for passing range updates
-
-- `.github/workflows/python-dev-dependency-upgrade.yml`
-  - Trigger: `workflow_dispatch`
-  - Runs `uv run poe upgrade-dev-dependencies`
-  - Commits any resulting `pyproject.toml` / `uv.lock` changes and opens/updates a PR
+- Refreshes development and tool dependency pins and the shared lockfile.
+- Runs `uv run poe validate-dependency-bounds-test --package "*"`, followed by
+  `uv run poe validate-dependency-bounds-project --mode upper --package "*"` only if the bounds tests succeed.
+- Uploads available validation reports in the `dependency-maintenance-results` artifact and creates issues for
+  failed bounds tests and failing candidate versions.
+- Keeps only development and tool updates if bounds or range validation fails, then runs the final install,
+  checks, and typing before pushing any updates to `automation/python-dependency-maintenance`.
+- Creates or updates the `Python dependency maintenance PR needed` tracking issue with instructions for a
+  maintainer to open the PR. The workflow does not open a PR automatically.
 
 ### Direct module execution
 
