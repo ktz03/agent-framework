@@ -59,6 +59,17 @@ jobs:
       - name: Run Python tests
         run: python .github/tests/test_python_check_coverage.py
 
+      - name: Run stale issue and PR follow-up tests
+        working-directory: ${{ runner.temp }}
+        env:
+          UV_NO_CONFIG: "1"
+        run: |
+          uv --no-config run \
+            --no-project \
+            --with PyGithub==2.6.0 \
+            --with pytest==9.1.1 \
+            python -m pytest "$GITHUB_WORKSPACE/.github/tests/test_stale_issue_pr_ping.py" -q
+
       - name: Run Python API compatibility tests
         working-directory: ${{ runner.temp }}
         env:

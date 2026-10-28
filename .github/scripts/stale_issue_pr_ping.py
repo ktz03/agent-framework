@@ -60,14 +60,25 @@ def find_last_team_comment(
 
 
 def author_replied_after(
-    comments: list[IssueComment], author: str, after: datetime
+    comments: list[IssueComment],
+    author: str,
+    after: datetime,
+    *,
+    after_id: int | None = None,
 ) -> bool:
-    """Check if the issue author commented after the given timestamp."""
+    """Check for an author reply, using the comment ID to break timestamp ties."""
     for comment in comments:
         if (
             comment.user
             and comment.user.login == author
-            and comment.created_at > after
+            and (
+                comment.created_at > after
+                or (
+                    after_id is not None
+                    and comment.created_at == after
+                    and comment.id > after_id
+                )
+            )
         ):
             return True
     return False
@@ -109,7 +120,9 @@ def should_ping(
         return False
 
     # Skip if author replied after the last team comment
-    if author_replied_after(comments, author, last_team_comment.created_at):
+    if author_replied_after(
+        comments, author, last_team_comment.created_at, after_id=last_team_comment.id
+    ):
         return False
 
     # Check if enough days have passed

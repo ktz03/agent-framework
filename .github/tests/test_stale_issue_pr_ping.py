@@ -295,3 +295,74 @@ class TestMain:
         with pytest.raises(SystemExit):
             main()
         assert "TEAM_SLUG" in capsys.readouterr().out
+
+
+class TestCommentOrderTies:
+    def test_same_second_reply_after_team_skips_ping(self):
+        team = _make_comment("alice", NOW - timedelta(days=5))
+        team.id = 100
+        author = _make_comment("external", team.created_at)
+        author.id = 101
+        issue = _make_issue(comments=[team, author], comment_count=2)
+
+        assert should_ping(issue, TEAM, 4, NOW) is False
+        issue.get_comments.assert_called_once_with()
+
+    def test_same_second_author_before_team_still_needs_reply(self):
+        author = _make_comment("external", NOW - timedelta(days=5))
+        author.id = 99
+        team = _make_comment("alice", author.created_at)
+        team.id = 100
+        issue = _make_issue(comments=[author, team], comment_count=2)
+
+        assert should_ping(issue, TEAM, 4, NOW) is True
+
+    def test_same_second_reply_before_latest_team_comment_is_not_enough(self):
+        first = _make_comment("alice", NOW - timedelta(days=5))
+        first.id = 100
+        author = _make_comment("external", first.created_at)
+        author.id = 101
+        latest = _make_comment("bob", first.created_at)
+        latest.id = 102
+        issue = _make_issue(comments=[first, author, latest], comment_count=3)
+
+        assert should_ping(issue, TEAM, 4, NOW) is True
+
+    def test_same_second_reply_after_latest_team_comment_skips_ping(self):
+        first = _make_comment("alice", NOW - timedelta(days=5))
+        first.id = 100
+        author = _make_comment("external", first.created_at)
+        author.id = 101
+        latest = _make_comment("bob", first.created_at)
+        latest.id = 102
+        reply = _make_comment("external", first.created_at)
+        reply.id = 103
+        issue = _make_issue(comments=[first, author, latest, reply], comment_count=4)
+
+        assert should_ping(issue, TEAM, 4, NOW) is False
+
+    def test_timestamp_only_helper_retains_strict_comparison(self):
+        after = NOW - timedelta(days=5)
+        author = _make_comment("external", after)
+        author.id = 101
+
+        assert author_replied_after([author], "external", after) is False
+
+    def test_same_second_other_user_does_not_count_as_author(self):
+        team = _make_comment("alice", NOW - timedelta(days=5))
+        team.id = 100
+        other = _make_comment("other", team.created_at)
+        other.id = 101
+        issue = _make_issue(comments=[team, other], comment_count=2)
+
+        assert should_ping(issue, TEAM, 4, NOW) is True
+
+    def test_same_second_deleted_user_does_not_count_as_author(self):
+        team = _make_comment("alice", NOW - timedelta(days=5))
+        team.id = 100
+        deleted = _make_comment(None, team.created_at)
+        deleted.id = 101
+        issue = _make_issue(comments=[team, deleted], comment_count=2)
+
+        assert should_ping(issue, TEAM, 4, NOW) is True
+
